@@ -1,55 +1,161 @@
 <!DOCTYPE html>
 <html lang="en-us">
 <head>
-    <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Dune</title>
-    <link rel="stylesheet" href="style.css">
+    <meta charset="utf-8"/>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+    <title>Dune Dash</title>
+    <link rel="stylesheet" href="style.css"/>
     <style>
-        body { padding: 0; margin: 0; overflow: hidden; background-color: #000; width: 100vw; height: 100vh; }
-        #unity-container { width: 100%; height: 100%; position: absolute; }
-        #unity-canvas { width: 100% !important; height: 100% !important; background: #231f20; }
+        canvas:focus { outline: none; }
+        html, body {
+            padding: 0; margin: 0; overflow: hidden;
+            width: 100%; height: 100%;
+            background-color: #000;
+        }
+        #unity-container { 
+            width: 100%; height: 100%; 
+            position: absolute; top: 0; left: 0; 
+        }
+        #unity-canvas { 
+            width: 100% !important; height: 100% !important; 
+        }
     </style>
 </head>
 <body class="dark">
 
-    <div id="unity-container">
-        <canvas id="unity-canvas" tabindex="-1"></canvas>
-    </div>
+<div id="unity-container" class="unity-desktop">
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+</div>
 
-    <script>
-        // Configuration pointing to your local repository folders
-        const buildUrl = "Build";
-        const loaderUrl = buildUrl + "/Dune.loader.js";
-        const config = {
-            dataUrl: buildUrl + "/Dune.data.br",
-            frameworkUrl: buildUrl + "/Dune.framework.js",
-            codeUrl: buildUrl + "/Dune.wasm.br", // Direct link if you merge the files
-            streamingAssetsUrl: "StreamingAssets",
-            companyName: "DefaultCompany",
-            productName: "DuneClone",
-            productVersion: "1.0",
+<script>
+    const NO_DATA = 'no data';
+
+    var environmentData = NO_DATA;
+    var playerData = NO_DATA;
+    var initGame = false;
+    var ygGameInstance = null;
+
+    function LogStyledMessage(message) {
+        console.log('%c' + message, 'color: #FFDF73; background-color: #454545; padding: 2px 5px; border-radius: 2px;');
+    }
+
+    // Configuration - Pointing to your local Build folder
+    const buildUrl = "Build";
+    const loaderUrl = buildUrl + "/Dune.loader.js";
+    const config = {
+        dataUrl: buildUrl + "/Dune.data.br",
+        frameworkUrl: buildUrl + "/Dune.framework.js",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "DefaultCompany",
+        productName: "DuneDash",
+        productVersion: "1.0"
+    };
+
+    const container = document.querySelector("#unity-container");
+    const canvas = document.querySelector("#unity-canvas");
+
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        container.className = "unity-mobile";
+    }
+
+    // THE MERGE LOGIC: This fixes your 404 error
+    function loadAndMergeFiles(files, callback) {
+        var mergedBlob = [];
+        var loadNextFile = function(index) {
+            if (index < files.length) {
+                var file = files[index];
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', buildUrl + "/" + file, true);
+                xhr.responseType = 'arraybuffer';
+                xhr.onload = function() {
+                    if (this.status === 200) {
+                        mergedBlob.push(new Uint8Array(this.response));
+                        loadNextFile(index + 1);
+                    } else {
+                        LogStyledMessage("Error loading part: " + file);
+                        loadNextFile(index + 1);
+                    }
+                };
+                xhr.send();
+            } else {
+                var blob = new Blob(mergedBlob);
+                callback(blob);
+            }
         };
+        loadNextFile(0);
+    }
 
-        const canvas = document.querySelector("#unity-canvas");
-        const script = document.createElement("script");
-        script.src = loaderUrl;
+    var wasmParts = [
+        "Dune.wasm.br.part1", "Dune.wasm.br.part2", "Dune.wasm.br.part3",
+        "Dune.wasm.br.part4", "Dune.wasm.br.part5", "Dune.wasm.br.part6"
+    ];
 
-        // If you are keeping the WASM files split into parts (1-6), 
-        // keep the loadAndMergeFiles function from your original code.
-        // Otherwise, this standard loader will work:
-        script.onload = () => {
+    const script = document.createElement("script");
+    script.src = loaderUrl;
+    script.onload = () => {
+        loadAndMergeFiles(wasmParts, function(blob) {
+            config.codeUrl = URL.createObjectURL(blob);
+
             createUnityInstance(canvas, config, (progress) => {
-                console.log("Loading: " + (100 * progress) + "%");
+                // Progress tracking can be added here
             }).then((unityInstance) => {
-                console.log("Unity Instance Created Successfully");
+                ygGameInstance = unityInstance;
+                LogStyledMessage("Unity ready. Initializing Fake SDK.");
+                InitFakeYSDK();
             }).catch((message) => {
-                alert(message);
+                console.error(message);
             });
-        };
+        });
+    };
+    document.body.appendChild(script);
 
-        document.body.appendChild(script);
-    </script>
+    // --- FAKE SDK LOGIC (Required by the Unity Project) ---
+
+    function YG2Instance(method, arg) {
+        if (!ygGameInstance) return;
+        ygGameInstance.SendMessage('YG2Instance', method, arg);
+    }
+
+    function InitFakeYSDK() {
+        // Environment Data
+        var fakeEnvData = {
+            "language": "en", "domain": "default", "deviceType": "desktop",
+            "isMobile": false, "isDesktop": true, "appID": "offline", "browser": "Chrome"
+        };
+        YG2Instance('SetEnvirData', JSON.stringify(fakeEnvData));
+
+        // Player Data
+        var fakePlayer = {
+            "playerAuth": "resolved", "playerName": "Gamer", "playerId": "1"
+        };
+        YG2Instance('SetAuth', JSON.stringify(fakePlayer));
+
+        // Other standard signals
+        YG2Instance('SetLoadSaves', NO_DATA);
+        YG2Instance('ReceiveStats', NO_DATA);
+        YG2Instance('PaymentsEntries', NO_DATA);
+    }
+
+    // Ads Mocking
+    function InterAdvShow() {
+        YG2Instance('OpenInterAdv');
+        setTimeout(() => YG2Instance('CloseInterAdv', 'true'), 300);
+    }
+
+    function RewardedAdvShow(id) {
+        YG2Instance('OpenRewardedAdv');
+        setTimeout(() => {
+            YG2Instance('CloseRewardedAdv');
+            YG2Instance('RewardAdv', id);
+        }, 300);
+    }
+
+    // Input focus helper
+    function FocusGame() { window.focus(); canvas.focus(); }
+    window.addEventListener('pointerdown', FocusGame);
+    window.addEventListener('touchstart', FocusGame);
+</script>
+
 </body>
 </html>
