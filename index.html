@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Dune</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { padding: 0; margin: 0; overflow: hidden; background-color: #000; width: 100vw; height: 100vh; }
+        #unity-container { width: 100%; height: 100%; position: absolute; }
+        #unity-canvas { width: 100% !important; height: 100% !important; background: #231f20; }
+    </style>
+</head>
+<body class="dark">
+
+    <div id="unity-container">
+        <canvas id="unity-canvas" tabindex="-1"></canvas>
+    </div>
+
+    <script>
+        // Configuration pointing to your local repository folders
+        const buildUrl = "Build";
+        const loaderUrl = buildUrl + "/Dune.loader.js";
+        const config = {
+            dataUrl: buildUrl + "/Dune.data.br",
+            frameworkUrl: buildUrl + "/Dune.framework.js",
+            codeUrl: buildUrl + "/Dune.wasm.br", // Direct link if you merge the files
+            streamingAssetsUrl: "StreamingAssets",
+            companyName: "DefaultCompany",
+            productName: "DuneClone",
+            productVersion: "1.0",
+        };
+
+        const canvas = document.querySelector("#unity-canvas");
+        const script = document.createElement("script");
+        script.src = loaderUrl;
+
+        // If you are keeping the WASM files split into parts (1-6), 
+        // keep the loadAndMergeFiles function from your original code.
+        // Otherwise, this standard loader will work:
+        script.onload = () => {
+            createUnityInstance(canvas, config, (progress) => {
+                console.log("Loading: " + (100 * progress) + "%");
+            }).then((unityInstance) => {
+                console.log("Unity Instance Created Successfully");
+            }).catch((message) => {
+                alert(message);
+            });
+        };
+
+        document.body.appendChild(script);
+    </script>
+</body>
+</html>
